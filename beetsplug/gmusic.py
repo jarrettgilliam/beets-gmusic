@@ -33,26 +33,35 @@ class GooglePlayMusicPlugin(BeetsPlugin):
             self._log.error("Error: Couldn't log in.")
             raise e
 
-        if not self.mm.is_authenticated():
+        if not self.authenticated:
             self._log.error("Error: Couldn't log in.")
-            raise RuntimeError("Error: Couldn't log in.")
 
         # Register listeners
         if self.auto_upload:
             self.register_listener('item_imported', self.on_item_imported)
             self.register_listener('album_imported', self.on_album_imported)
 
+
     def on_item_imported(self, lib, item):
-        uploaded, matched, not_uploaded = \
-                self.mm.upload(item.path, enable_matching=self.enable_matching)
-        if uploaded:
-            self._log.info('Successfully uploaded "{0}"'.format(item.path))
-        elif matched:
-            self._log.info('Successfully scanned and matched "{0}"'.format(item.path))
+        if not self.authenticated:
+            self._log.warning("Warning: not logged in")
         else:
-            self._log.warning('Warning: {0}'.format(not_uploaded[item.path]))
+            uploaded, matched, not_uploaded = \
+                self.mm.upload(item.path, enable_matching=self.enable_matching)
+            if uploaded:
+                self._log.info('Successfully uploaded "{0}"'.format(item.path))
+            elif matched:
+                self._log.info('Successfully scanned and matched "{0}"'.format(item.path))
+            else:
+                self._log.warning('Warning: {0}'.format(not_uploaded[item.path]))
+
 
     def on_album_imported(self, lib, album):
         for item in album.items():
             self.on_item_imported(lib, item)
+
+
+    @property
+    def authenticated(self):
+        return self.mm.is_authenticated()
 
