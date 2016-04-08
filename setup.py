@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "beets-gmusic",
-    version = "0.0.1-dev",
+    version = "0.0.1",
     description="beets plugin to sync music library with Google Play Music",
     long_description=open('README.md').read(),
     author='Jarrett Gilliam',
