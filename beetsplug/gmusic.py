@@ -1,4 +1,5 @@
 import logging
+from threading import Thread
 from beets.plugins import BeetsPlugin
 from beets.ui import Subcommand, decargs
 from gmusicapi.clients import Musicmanager, OAUTH_FILEPATH
@@ -47,8 +48,24 @@ class GooglePlayMusicPlugin(BeetsPlugin):
         return self.mm.is_authenticated()
 
     def on_item_imported(self, lib, item):
+        self.__upload_item(item)
+
+    def on_album_imported(self, lib, album):
+        self.__upload_items(album.items())
+
+    def commands(self):
+        gmupload_cmd = Subcommand('gmupload', help='upload songs to Google Play Music matching a query')
+
+        def on_gmupload(lib, opts, args):
+            self.__upload_items(lib.items(decargs(args)))
+
+        gmupload_cmd.func = on_gmupload
+
+        return [gmupload_cmd]
+
+    def __upload_item(self, item):
         if not self.authenticated:
-            self._log.warning("Warning: not logged in")
+            self._log.warning('Warning: Not logged in. Can\'t upload "{0}'.format(item.path))
         else:
             uploaded, matched, not_uploaded = \
                 self.mm.upload(item.path, enable_matching=self.enable_matching)
@@ -59,18 +76,12 @@ class GooglePlayMusicPlugin(BeetsPlugin):
             else:
                 self._log.warning('Warning: {0}'.format(not_uploaded[item.path]))
 
-    def on_album_imported(self, lib, album):
-        for item in album.items():
-            self.on_item_imported(lib, item)
-
-    def commands(self):
-        gmupload_cmd = Subcommand('gmupload', help='upload songs to Google Play Music matching a query')
-
-        def on_gmupload(lib, opts, args):
-            for item in lib.items(decargs(args)):
-                self.on_item_imported(lib, item)
-
-        gmupload_cmd.func = on_gmupload
-
-        return [gmupload_cmd]
+    def __upload_items(self, items):
+        threads = []
+        for i in items:
+            t = Thread(target=self.__upload_item, args=(i,))
+            t.start()
+            threads.append(t)
+        for t in threads:
+            t.join()
 
