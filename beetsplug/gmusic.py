@@ -23,29 +23,13 @@ class GooglePlayMusicPlugin(BeetsPlugin):
         # Initialize gmusicapi
         self.mm = Musicmanager(debug_logging=False)
         self.mm.logger.addHandler(logging.NullHandler())
-        try:
-            if not self.mm.login(oauth_credentials=OAUTH_FILEPATH, uploader_id=self.uploader_id):
-                try:
-                    self.mm.perform_oauth()
-                except e:
-                    self._log.error("Error: Unable to login with specified oauth code.")
-                    raise e
-                self.mm.login(oauth_credentials=OAUTH_FILEPATH, uploader_id=self.uploader_id)
-        except (OSError, ValueError) as e:
-            self._log.error("Error: Couldn't log in.")
-            raise e
-
-        if not self.authenticated:
-            self._log.error("Error: Couldn't log in.")
+        if not self.__mm_authenticate():
+            self._log.warning('Warning: oauth failed.')
 
         # Register listeners
         if self.auto_upload:
             self.register_listener('item_imported', self.on_item_imported)
             self.register_listener('album_imported', self.on_album_imported)
-
-    @property
-    def authenticated(self):
-        return self.mm.is_authenticated()
 
     def on_item_imported(self, lib, item):
         self.__upload_item(item)
@@ -63,8 +47,25 @@ class GooglePlayMusicPlugin(BeetsPlugin):
 
         return [gmupload_cmd]
 
+    def __mm_authenticate(self):
+        if not self.mm.is_authenticated():
+            try:
+                if not self.mm.login(oauth_credentials=OAUTH_FILEPATH, uploader_id=self.uploader_id):
+                    try:
+                        self.mm.perform_oauth()
+                    except e:
+                        self._log.error("Error: Unable to login with specified oauth code.")
+                        return False
+                    if not self.mm.login(oauth_credentials=OAUTH_FILEPATH, uploader_id=self.uploader_id):
+                        return False
+            except (OSError, ValueError) as e:
+                self._log.error("Error: Couldn't log in.")
+                return False
+        return True
+
+
     def __upload_item(self, item):
-        if not self.authenticated:
+        if not self.__mm_authenticate():
             self._log.warning('Warning: Not logged in. Can\'t upload "{0}'.format(item.path))
         else:
             uploaded, matched, not_uploaded = \
