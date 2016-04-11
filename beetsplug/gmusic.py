@@ -1,5 +1,6 @@
 import logging
 from beets.plugins import BeetsPlugin
+from beets.ui import Subcommand, decargs
 from gmusicapi.clients import Musicmanager, OAUTH_FILEPATH
 
 class GooglePlayMusicPlugin(BeetsPlugin):
@@ -41,6 +42,9 @@ class GooglePlayMusicPlugin(BeetsPlugin):
             self.register_listener('item_imported', self.on_item_imported)
             self.register_listener('album_imported', self.on_album_imported)
 
+    @property
+    def authenticated(self):
+        return self.mm.is_authenticated()
 
     def on_item_imported(self, lib, item):
         if not self.authenticated:
@@ -55,13 +59,18 @@ class GooglePlayMusicPlugin(BeetsPlugin):
             else:
                 self._log.warning('Warning: {0}'.format(not_uploaded[item.path]))
 
-
     def on_album_imported(self, lib, album):
         for item in album.items():
             self.on_item_imported(lib, item)
 
+    def commands(self):
+        gmupload_cmd = Subcommand('gmupload', help='upload songs to Google Play Music matching a query')
 
-    @property
-    def authenticated(self):
-        return self.mm.is_authenticated()
+        def on_gmupload(lib, opts, args):
+            for item in lib.items(decargs(args)):
+                self.on_item_imported(lib, item)
+
+        gmupload_cmd.func = on_gmupload
+
+        return [gmupload_cmd]
 
