@@ -1,4 +1,5 @@
 import logging
+import time
 from threading import Thread
 from beets.plugins import BeetsPlugin
 from beets.ui import Subcommand, decargs
@@ -19,6 +20,7 @@ class GooglePlayMusicPlugin(BeetsPlugin):
         #self.auto_delete = self.config['auto-delete'].get(bool)
         self.enable_matching = self.config['enable-matching'].get(bool)
         self.uploader_id = self.config['uploader-id'].get()
+        self.concurrent_uploads = 5
 
         # Initialize gmusicapi
         self.mm = Musicmanager(debug_logging=False)
@@ -78,11 +80,24 @@ class GooglePlayMusicPlugin(BeetsPlugin):
                 self._log.warning('Warning: {0}'.format(not_uploaded[item.path]))
 
     def __upload_items(self, items):
+        # Upload n items at a time
         threads = []
-        for i in items:
-            t = Thread(target=self.__upload_item, args=(i,))
-            t.start()
-            threads.append(t)
+        i = 0
+        while (i < len(items)):
+            if (len(threads) < self.concurrent_uploads):
+                t = Thread(target=self.__upload_item, args=(items[i],))
+                t.start()
+                threads.append(t)
+                i += 1
+            else:
+                j = 0
+                while (j < len(threads)):
+                    if not threads[j].is_alive():
+                        threads.pop(j)
+                        break
+                    j += 1
+                else:
+                    time.sleep(3)
         for t in threads:
             t.join()
 
