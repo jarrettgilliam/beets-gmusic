@@ -1,3 +1,5 @@
+# ***Google Play Music has been shut down. This project is no longer useful. Keeping it here for reference only.***
+
 beets-gmusic
 ============
 
